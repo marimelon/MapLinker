@@ -5,11 +5,11 @@ using System.Runtime.InteropServices;
 // General Information about an assembly is controlled through the following
 // set of attributes. Change these attribute values to modify the information
 // associated with an assembly.
-[assembly: AssemblyTitle("MapLinker")]
+[assembly: AssemblyTitle("MapLinker(Custom)")]
 [assembly: AssemblyDescription("")]
 [assembly: AssemblyConfiguration("")]
 [assembly: AssemblyCompany("")]
-[assembly: AssemblyProduct("MapLinker")]
+[assembly: AssemblyProduct("MapLinker(Custom)")]
 [assembly: AssemblyCopyright("Copyright © Bluefissure 2023")]
 [assembly: AssemblyTrademark("")]
 [assembly: AssemblyCulture("")]

@@ -34,6 +34,7 @@ namespace MapLinker
         public List<ushort> FilteredChannels = new List<ushort>();
         // public List<ushort> RecordingChannels = new List<ushort> { };
 
+        public bool TreasureHuntFeature = false;
 
         #region Init and Save
 

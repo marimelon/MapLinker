@@ -8,6 +8,7 @@ using Dalamud.Game.Text.SeStringHandling.Payloads;
 using Dalamud.Data;
 using Lumina.Excel.GeneratedSheets;
 using MapLinker.Objects;
+using Dalamud.Game.ClientState.Party;
 
 namespace MapLinker.Gui
 {
@@ -132,6 +133,8 @@ namespace MapLinker.Gui
             }
             if (ImGui.Checkbox(_localizer.Localize("Print Debug Message"), ref Config.PrintMessage)) Config.Save();
             if (ImGui.Checkbox(_localizer.Localize("Print Error Message"), ref Config.PrintError)) Config.Save();
+
+            if (ImGui.Checkbox(_localizer.Localize("Treasure Hunt Feature"), ref Config.TreasureHuntFeature)) Config.Save();
         }
 
         private void DrawFilters()
@@ -173,12 +176,20 @@ namespace MapLinker.Gui
         {
             // sender, text, time, view, tp, del
             int columns = 5;
+            if (Config.TreasureHuntFeature) columns++;
             if (Config.Teleport) columns++;
             if (ImGui.Button(_localizer.Localize("Clear")))
             {
                 Config.MapLinkMessageList.Clear();
                 Config.Save();
             }
+
+            ImGui.SameLine();
+            if (ImGui.Button("OpenMap"))
+            {
+                Plugin.OpenTempMapMarkers();
+            }
+
             // right alignment ?
             ImGui.SameLine(ImGui.GetCursorPosX() + ImGui.GetColumnWidth() - ImGui.CalcTextSize(_localizer.Localize("Target")).X - ImGui.GetScrollX() - ImGui.GetStyle().ItemSpacing.X);
             if (ImGui.Button(_localizer.Localize("Target")))
@@ -192,6 +203,10 @@ namespace MapLinker.Gui
             ImGui.TextWrapped(_localizer.Localize("Message")); ImGui.NextColumn();
             ImGui.Text(_localizer.Localize("Time")); ImGui.NextColumn();
             ImGui.Text(_localizer.Localize("Retrieve")); ImGui.NextColumn();
+            if (Config.TreasureHuntFeature)
+            {
+                ImGui.Text(_localizer.Localize("Send PT")); ImGui.NextColumn();
+            }
             if (Config.Teleport)
             {
                 ImGui.Text(_localizer.Localize("Teleport")); ImGui.NextColumn();
@@ -227,6 +242,17 @@ namespace MapLinker.Gui
                     Plugin.PlaceMapMarker(maplinkMessage);
                 }
                 ImGui.NextColumn();
+                if (Config.TreasureHuntFeature)
+                {
+                    var isParty = Plugin.PartyList.Length > 0;
+                    if (!isParty) ImGui.BeginDisabled();
+                    if (ImGui.Button(_localizer.Localize("PTChat") + "##" + i.ToString()))
+                    {
+                        Plugin.SendPTChat(maplinkMessage);
+                    }
+                    if (!isParty) ImGui.EndDisabled();
+                    ImGui.NextColumn();
+                }
                 if (Config.Teleport)
                 {
                     if (ImGui.Button(_localizer.Localize("Tele") + "##" + i.ToString()))

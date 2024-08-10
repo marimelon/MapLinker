@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Linq;
+using System.Text.RegularExpressions;
 using Dalamud.Plugin;
 using Dalamud.Game.Command;
 using Dalamud.Game.Text;
@@ -13,12 +14,14 @@ using Dalamud.Logging;
 using System.Collections.Generic;
 using Dalamud.Plugin.Services;
 using Dalamud.IoC;
+using FFXIVClientStructs.FFXIV.Client.UI.Agent;
+
 
 namespace MapLinker
 {
     public class MapLinker : IDalamudPlugin
     {
-        public string Name => "MapLinker";
+        public string Name => "MapLinker(Custom)";
         public PluginUi Gui { get; private set; }
         public static IDalamudPluginInterface Interface { get; private set; }
         public ICommandManager CommandManager { get; private set; }
@@ -30,7 +33,10 @@ namespace MapLinker
         public IGameGui GameGui { get; private set; }
 
         public static IPluginLog PluginLog { get; private set; }
+        public IGameInteropProvider GameInteropProvider { get; private set; }
+        public IPartyList PartyList { get; private set; }
 
+        public ChatManager ChatManager { get;private set; }
         public Configuration Config { get; private set; }
         public IPlayerCharacter LocalPlayer => ClientState.LocalPlayer;
         public bool IsLoggedIn => LocalPlayer != null;
@@ -57,7 +63,9 @@ namespace MapLinker
             IFramework framework,
             IGameGui gameGui,
             ITargetManager targetManager,
-            IPluginLog pluginLog)
+            IPluginLog pluginLog,
+            IGameInteropProvider gameInteropProvider,
+            IPartyList partyList)
         {
             Interface = pluginInterface;
             ClientState = clientState;
@@ -67,6 +75,11 @@ namespace MapLinker
             DataManager = data;
             ChatGui = chat;
             GameGui = gameGui;
+            GameInteropProvider = gameInteropProvider;
+            PartyList = partyList;
+
+            ChatManager = new ChatManager(framework, gameInteropProvider);
+
             Aetherytes = DataManager.GetExcelSheet<Aetheryte>(ClientState.ClientLanguage);
             AetherytesMap = DataManager.GetExcelSheet<MapMarker>(ClientState.ClientLanguage);
             Config = pluginInterface.GetPluginConfig() as Configuration ?? new Configuration();
@@ -264,8 +277,50 @@ namespace MapLinker
 
         }
 
+        private (string name, DateTime time)? digPlayerCache = null;
+
         private void Chat_OnChatMessage(XivChatType type, int timestamp, ref SeString sender, ref SeString message, ref bool isHandled)
         {
+            if (Config.TreasureHuntFeature)
+            {
+                if (message.ToString().StartsWith(" "))
+                {
+                    // スペースで始まるチャットを無視する
+                    return;
+                }
+
+                var match = Regex.Match(message.ToString(), "(?<name>.*?)の「ディグ」");
+                if (match.Success)
+                {
+                    var playerName = match.Groups["name"].Value;
+                    PluginLog.Debug($"Set digPlayerCache: {playerName}");
+                    digPlayerCache = (playerName, DateTime.Now);
+                }
+
+                if (digPlayerCache != null)
+                {
+                    if (digPlayerCache.Value.time + (new TimeSpan(0, 1, 0)) < DateTime.Now)
+                    {
+                        PluginLog.Debug($"Delete digPlayerCache: {digPlayerCache.Value.name}");
+                        digPlayerCache = null;
+                    }
+                }
+
+                if (digPlayerCache != null && message.ToString() == "隠された宝箱を発見した！")
+                {
+                    foreach (var link in Config.MapLinkMessageList)
+                    {
+                        if (link.Sender.Contains(digPlayerCache.Value.name))
+                        {
+                            PluginLog.Debug($"Matched digPlayerCache: {digPlayerCache.Value.name}");
+                            Config.MapLinkMessageList.Remove(link);
+                            Config.Save();
+                            break;
+                        }
+                    }
+                }
+            }
+
             if (!Config.Recording) return;
             bool hasMapLink = false;
             float coordX = 0;
@@ -358,6 +413,59 @@ namespace MapLinker
             var map = DataManager.GetExcelSheet<TerritoryType>().GetRow(maplinkMessage.TerritoryId).Map;
             var maplink = new MapLinkPayload(maplinkMessage.TerritoryId, map.Row, maplinkMessage.X, maplinkMessage.Y);
             GameGui.OpenMapWithMapLink(maplink);
+        }
+
+        public void SendPTChat(MapLinkMessage maplinkMessage)
+        {
+            if (!Config.TreasureHuntFeature) return;
+            this.PlaceMapMarker(maplinkMessage);
+            this.ChatManager.SendMessage("/p  <flag>");
+        }
+
+        public unsafe void OpenTempMapMarkers()
+        {
+            var linkList = Config.MapLinkMessageList;
+
+
+            if (linkList.Count == 0)
+            {
+                PluginLog.Debug("No maplink");
+                return;
+            }
+
+            var instance = AgentMap.Instance();
+            instance->TempMapMarkerCount = 0;
+
+            uint? firstMapId = null;
+            uint? lastTeri = null;
+            uint? lastMapId = null;
+
+            for (var i = 0; i < Math.Min(linkList.Count,10); i++)
+            {
+                var link = linkList[i];
+                var teri = link.TerritoryId;
+                var mapId = this.DataManager.GetExcelSheet<TerritoryType>()?.GetRow(teri).Map.Row;
+                var tpplTip = String.IsNullOrEmpty(link.Sender) ? $"Flag {i}" : link.Sender;
+                if (firstMapId == null)
+                {
+                    firstMapId = mapId;
+                }
+                else if(firstMapId != mapId)
+                {
+                    continue;
+                }
+
+                var mapX = ConvertMapCoordinateToRawPosition(link.X, link.Scale) / 1000;
+                var mapY = ConvertMapCoordinateToRawPosition(link.Y, link.Scale) / 1000;
+                instance->AddGatheringTempMarker(mapX, mapY, 70, iconId: 0xEBC4, styleFlags: 7, tooltip: tpplTip);
+                lastTeri = teri;
+                lastMapId = mapId;
+            }
+
+            if (lastTeri != null && lastMapId != null)
+            {
+                instance->OpenMap(lastMapId.Value, territoryId: lastTeri.Value, type: FFXIVClientStructs.FFXIV.Client.UI.Agent.MapType.GatheringLog);
+            }
         }
     }
 }
