@@ -368,10 +368,11 @@ namespace MapLinker
                     var timeoutMin = new TimeSpan(0, Config.FilterDupTimeout, 0);
                     if (newMapLinkMessage.RecordTime < w.RecordTime + timeoutMin)
                     {
+                        bool sameSender = w.Sender == newMapLinkMessage.Sender;
                         bool sameX = (int)(w.X * 10) == (int)(newMapLinkMessage.X * 10);
                         bool sameY = (int)(w.Y * 10) == (int)(newMapLinkMessage.Y * 10);
                         bool sameTerritory = w.TerritoryId == newMapLinkMessage.TerritoryId;
-                        return sameTerritory && sameX && sameY;
+                        return sameSender && sameTerritory && sameX && sameY;
                     }
                     return sameText;
                 });
