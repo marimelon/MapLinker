@@ -135,6 +135,7 @@ namespace MapLinker.Gui
             if (ImGui.Checkbox(_localizer.Localize("Print Error Message"), ref Config.PrintError)) Config.Save();
 
             if (ImGui.Checkbox(_localizer.Localize("Treasure Hunt Feature"), ref Config.TreasureHuntFeature)) Config.Save();
+            if (ImGui.Checkbox(_localizer.Localize("Auto Open TempMap"), ref Config.AutoOpenTempMap)) Config.Save();
         }
 
         private void DrawFilters()

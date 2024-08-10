@@ -314,6 +314,10 @@ namespace MapLinker
                         {
                             PluginLog.Debug($"Matched digPlayerCache: {digPlayerCache.Value.name}");
                             Config.MapLinkMessageList.Remove(link);
+                            if (Config.AutoOpenTempMap)
+                            {
+                                OpenTempMapMarkers(false);
+                            }
                             Config.Save();
                             break;
                         }
@@ -376,6 +380,11 @@ namespace MapLinker
                 if (!filteredOut)
                 {
                     Config.MapLinkMessageList.Add(newMapLinkMessage);
+                    if (Config.AutoOpenTempMap)
+                    {
+                        OpenTempMapMarkers();
+                    }
+
                     if (Config.MapLinkMessageList.Count > Config.MaxRecordings)
                     {
                         var tempList = Config.MapLinkMessageList.OrderBy(e => e.RecordTime);
@@ -422,7 +431,7 @@ namespace MapLinker
             this.ChatManager.SendMessage("/p  <flag>");
         }
 
-        public unsafe void OpenTempMapMarkers()
+        public unsafe void OpenTempMapMarkers(bool open=true)
         {
             var linkList = Config.MapLinkMessageList;
 
@@ -462,7 +471,7 @@ namespace MapLinker
                 lastMapId = mapId;
             }
 
-            if (lastTeri != null && lastMapId != null)
+            if (open && lastTeri != null && lastMapId != null)
             {
                 instance->OpenMap(lastMapId.Value, territoryId: lastTeri.Value, type: FFXIVClientStructs.FFXIV.Client.UI.Agent.MapType.GatheringLog);
             }

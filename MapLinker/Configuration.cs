@@ -35,6 +35,7 @@ namespace MapLinker
         // public List<ushort> RecordingChannels = new List<ushort> { };
 
         public bool TreasureHuntFeature = false;
+        public bool AutoOpenTempMap = false;
 
         #region Init and Save
 
